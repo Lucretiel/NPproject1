@@ -2,81 +2,61 @@
  * layer2.c
  *
  *  Created on: Jan 31, 2014
- *      Author: nathan
+ *      Author: Nathan West
  *
- *  Protocol description:
- *  [length][xor-checksum of content][CONTENT][\0 pads out to 16 bytes]
+ *  Protocol: [length][content][padding]
+ *            B       B...
+ *            MAX_CHUNK_SIZE + 1 bytes sent total
  *
+ *  All errors are assumed to be catastrophic. As soon as an error happens, all
+ *  future calls will return an error as well.
  */
 
 #include <string.h> //For memcpy
-#include "layers.h"
+
+int layer1_write(char b);
+int layer1_read(char* b);
 
 #define MAX_CHUNK_SIZE 16
 
-static inline char xor_checksum(char* chunk, int len)
-{
-	char base = 0;
-	for(; len != 0; ++chunk, --len)
-		base ^= *chunk;
-	return base;
-}
-
-#define LAYER1_WRITE_SET_ERROR(byte) if(layer1_write(byte) == -1) retcode = -1
+//If condition is true, fail unrecoverably.
+#define CHECK_ERROR(condition) if(condition) return error = -1
+#define INIT_ERROR() static int error=0; CHECK_ERROR(error == -1)
 
 int layer2_write(char* chunk, int len)
 {
-	//bounds check
-	if(len > MAX_CHUNK_SIZE || len < 0) return -1;
 
-	//convert length to byte
+	INIT_ERROR();
+
+	CHECK_ERROR(len < 0 || len > MAX_CHUNK_SIZE);
+
 	char len_byte = len;
+	CHECK_ERROR(layer1_write(len_byte) == -1);
 
-	//Get checksum
-	char checksum = xor_checksum(chunk, len);
+	int i;
+	for(i = 0; i < len; ++i)
+		CHECK_ERROR(layer1_write(chunk[i]) == -1);
+	for(; i < MAX_CHUNK_SIZE; ++i)
+		CHECK_ERROR(layer1_write(0) == -1);
 
-	int retcode = len;
-
-	//Write 18 bytes no matter what
-	//write length
-	LAYER1_WRITE_SET_ERROR(len_byte);
-
-	//write checksum
-	LAYER1_WRITE_SET_ERROR(checksum);
-
-	//write 16 bytes
-	for(int i = 0; i < MAX_CHUNK_SIZE; ++i)
-		LAYER1_WRITE_SET_ERROR(i < len ? chunk[i] : 0);
-
-	return retcode;
+	return len;
 }
-
-#define LAYER1_READ_SET_ERROR(byte) if(layer1_read(byte) == -1) retcode = -1;
 
 int layer2_read(char* chunk, int max)
 {
-	int retcode = 0;
+	INIT_ERROR();
+
 	char read_len;
-	char checksum;
 	char read_buf[MAX_CHUNK_SIZE];
 
-	//Read 18 bytes no matter what
-	LAYER1_READ_SET_ERROR(&read_len);
-	LAYER1_READ_SET_ERROR(&checksum);
+	CHECK_ERROR(layer1_read(&read_len) == -1);
 	for(int i = 0; i < MAX_CHUNK_SIZE; ++i)
-		LAYER1_READ_SET_ERROR(read_buf+i);
+		CHECK_ERROR(layer1_read(read_buf+i) == -1);
 
-	//Read error?
-	if(retcode == -1) return -1;
+	int len = read_len;
+	CHECK_ERROR(len < 0 || len > MAX_CHUNK_SIZE);
 
-	//bad length?
-	if(read_len > MAX_CHUNK_SIZE || read_len < 0) return -1;
-
-	//max too low?
-	if(read_len > max) return -1;
-
-	//bad checksum?
-	if(xor_checksum(read_buf, read_len) != checksum) return -1;
+	CHECK_ERROR(len > max);
 
 	memcpy(chunk, read_buf, read_len);
 	return read_len;

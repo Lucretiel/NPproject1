@@ -3,6 +3,9 @@
  *
  *  Created on: Jan 31, 2014
  *      Author: nathan
+ *
+ *  All errors are catatrophic and unrecoverable.
+ *
  */
 
 #ifndef LAYERS_H_
@@ -10,6 +13,8 @@
 
 struct _student;
 typedef struct _student student;
+
+#define MAX_CHUNK_SIZE 16
 
 int layer1_write(char b);
 int layer1_read(char* b);

@@ -12,8 +12,6 @@
 #include <string.h>
 #include "layers.h"
 
-const static int LAYER = 3;
-
 static inline int min(int a, int b) { return a < b ? a : b; }
 
 int layer3_write(char* msg, int len)
@@ -26,7 +24,7 @@ int layer3_write(char* msg, int len)
 	int bytes_to_write = -1;
 	do
 	{
-		int bytes_to_write = min(MAX_CHUNK_SIZE, bytes_remaining);
+		bytes_to_write = min(MAX_CHUNK_SIZE, bytes_remaining);
 		CHECK_ERROR(layer2_write(msg_seek, bytes_to_write));
 		msg_seek += bytes_to_write;
 		bytes_remaining -= bytes_to_write;

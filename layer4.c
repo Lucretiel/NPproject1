@@ -8,10 +8,7 @@
  *  checksum. Write it as a message, then the message itself.
  */
 
-#include <stdlib.h>
 #include "layers.h"
-
-const static int LAYER = 4;
 
 int layer4_write(char* msg, int len)
 {

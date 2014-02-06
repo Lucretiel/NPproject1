@@ -20,28 +20,19 @@
 
 #include "layers.h"
 
-const static int LAYER = 2;
-
-//If this many consecutive layer 1 reads/writes fail, fail forever.
-const static unsigned MAX_LAYER1_RETRIES = 500;
-
 int layer2_write(char* chunk, int len)
 {
 	INIT_ERROR();
 
 	if(len < 0 || len > MAX_CHUNK_SIZE) return -1;
 
-	//Create the bytes to be written
-	char chunk_buffer[MAX_CHUNK_SIZE + 1];
+	char len_byte = len;
+	char chunk_buffer[MAX_CHUNK_SIZE];
 
-	//Write length byte
-	chunk_buffer[0] = len;
+	memcpy(chunk_buffer, chunk, len);
 
-	//Write data bytes
-	memcpy(chunk_buffer+1, chunk, len);
-
-	//Write
-	for(unsigned i = 0; i < len+1; ++i)
+	CHECK_ERROR(layer1_write(len_byte));
+	for(unsigned i = 0; i < len; ++i)
 		CHECK_ERROR(layer1_write(chunk_buffer[i]));
 
 	return len;

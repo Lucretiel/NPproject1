@@ -5,7 +5,8 @@
  *      Author: nathan
  *
  *  PROTOCOL: Add all the bytes together into an unsigned int- this is the
- *  checksum. Write it as a message, then the message itself.
+ *  checksum. Write it as a message, then the message itself. 2 layer-3 messages
+ *  are sent.
  */
 
 #include "layers.h"

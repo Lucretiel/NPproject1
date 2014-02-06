@@ -4,16 +4,19 @@
  *  Created on: Feb 5, 2014
  *      Author: nathan
  *
- *  PROTOCOL: rin, gpa, firstname, lastname.
+ *  PROTOCOL: write 4 messages: rin, gpa, firstname, lastname.
+ *    - gpa is multiplied by 1000, sent as an int, then divided by 1000
+ *    - No \0s are sent with the names. The message lengths determine the name
+ *      lengths.
  */
 
 #include <string.h>
 #include <stdlib.h>
 #include "layers.h"
 
-const static int GPA_DECIMAL_PLACES = 3;
-const static int GPA_MULTIPLIER = 10 * GPA_DECIMAL_PLACES;
-const static int MAX_NAME_LENGTH = 80;
+#define GPA_DECIMAL_PLACES (3)
+#define GPA_MULTIPLIER (10 * GPA_DECIMAL_PLACES)
+#define MAX_NAME_LENGTH (80)
 
 int layer5_write( student * stu )
 {

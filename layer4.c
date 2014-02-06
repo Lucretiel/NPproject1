@@ -4,63 +4,43 @@
  *  Created on: Feb 5, 2014
  *      Author: nathan
  *
- *  PROTOCOL: add all the bytes in an int. Write this int then the msg
+ *  PROTOCOL: Add all the bytes together into an unsigned int- this is the
+ *  checksum. Write it as a message, then the message itself.
  */
 
 #include <stdlib.h>
 #include "layers.h"
 
+const static int LAYER = 4;
+
 int layer4_write(char* msg, int len)
 {
 	INIT_ERROR();
 
-	int checksum = 0;
-	const int checksum_size = sizeof(checksum);
-
-	//Sadly, because layer3 is message oriented, we have to allocate
-	const int write_len = len + checksum_size;
-	char* const buffer = (char*)malloc(write_len);
-	char* checksum_dest = buffer;
-	char* buffer_seek = buffer + checksum_size;
-	char* msg_seek = msg;
-
-	//Could memcpy, but we have to loop anyway, so fuck it
+	unsigned checksum = 0;
 	for(int i = 0; i < len; ++i)
-	{
-		*buffer_seek = *msg_seek;
-		checksum += *msg_seek;
-		++buffer_seek;
-		++msg_seek;
-	}
+		checksum += msg[i];
 
-	VALUE_TO_CHAR_ARRAY(checksum, checksum_dest);
-	CHECK_ERROR(layer3_write(buffer, write_len) == -1);
-	return write_len;
+	CHECK_ERROR(layer3_write((char*)&checksum, sizeof(checksum)));
+	CHECK_ERROR(layer3_write(msg, len));
+
+	return len;
 }
 
 int layer4_read(char* msg, int max)
 {
 	INIT_ERROR();
 
-	int checksum = 0;
-	const int checksum_size = sizeof(checksum);
-	const int actual_max = max + checksum_size;
-	char* read_buffer = (char*)malloc(actual_max);
-	const int amount_read = layer3_read(read_buffer, actual_max);
-	CHECK_ERROR(amount_read == -1);
-	const int data_read = amount_read - checksum_size;
+	unsigned remote_checksum;
+	unsigned local_checksum = 0;
+	int bytes_read;
 
-	char* buffer_seek = read_buffer + checksum_size;
-	char* write_seek = msg;
-	for(int i = 0; i < data_read; ++i)
-	{
-		*write_seek = *buffer_seek;
-		checksum += *buffer_seek;
-		++buffer_seek;
-		++write_seek;
-	}
-	int read_checksum;
-	CHAR_ARRAY_TO_VALUE(msg, read_checksum);
-	if(read_checksum != checksum) return -1;
-	return data_read;
+	CHECK_ERROR(layer3_read((char*)&remote_checksum, sizeof(remote_checksum)));
+	CHECK_ERROR(bytes_read = layer3_read(msg, max));
+
+	for(int i = 0; i < bytes_read; ++i)
+		local_checksum += msg[i];
+
+	if(local_checksum != remote_checksum) return -1;
+	else return bytes_read;
 }

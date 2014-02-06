@@ -10,8 +10,12 @@
 
 #define MAX_CHUNK_SIZE 16
 
-struct _student;
-typedef struct _student student;
+typedef struct {
+  char * firstname;
+  char * lastname;
+  int rin;
+  double gpa;
+} student;
 
 int layer1_write(char b);
 int layer1_read(char* b);
@@ -36,17 +40,9 @@ int layer5_read( student * stu );
  */
 
 //If condition is true, fail unrecoverably.
-#define CHECK_ERROR(condition) if(condition) return error = -1
+#define CHECK_ERROR(EXPR) if((EXPR) == -1) return error = -1
 
 //Initialize static error; check it
-#define INIT_ERROR() static int error=0; CHECK_ERROR(error == -1)
-
-//Convert a value to a char array
-#define VALUE_TO_CHAR_ARRAY(VALUE, CHARS) \
-	memcpy((CHARS), (char*)((void*)(&VALUE)), sizeof(VALUE));
-
-//Convert it back
-#define CHAR_ARRAY_TO_VALUE(CHARS, VALUE) \
-	memcpy((char*)((void*)(&VALUE)), (CHARS), sizeof(VALUE));
+#define INIT_ERROR() static int error=0; CHECK_ERROR(error)
 
 #endif /* LAYERS_H_ */

@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include "layers.h"
 
-#define MAX_NAME_LENGTH (1000)
+#define MAX_NAME_LENGTH (80)
 #define STAT_BUF_LENGTH /*(RIN_LENGTH + GPA_LENGTH + 2)*/ (80)
 
 int layer5_write( student * stu )

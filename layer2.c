@@ -4,60 +4,117 @@
  *  Created on: Jan 31, 2014
  *      Author: Nathan West
  *
- *  Protocol: [length][content][padding]
- *            B       B...
- *            MAX_CHUNK_SIZE + 1 bytes sent total
- *
- *  All errors are assumed to be catastrophic. As soon as an error happens, all
- *  future calls will return an error as well.
+ *  Protocol: [length][content][padding][xor_checksum]
+ *            B       B...     B...     B
+ *            MAX_CHUNK_SIZE + 2 bytes sent total
  */
 
 #include <string.h> //For memcpy
+#include <stdlib.h>
+#include "layers.h"
 
-int layer1_write(char b);
-int layer1_read(char* b);
+//If this many consecutive layer 1 reads/writes fail, fail forever.
+const static unsigned MAX_LAYER1_RETRIES = 500;
 
-#define MAX_CHUNK_SIZE 16
+//constant array indexes
+const static int TRUE_CHUNK_SIZE = MAX_CHUNK_SIZE + 2;
+const static int LENGTH_BYTE = 0;
+const static int CHECKSUM_BYTE = TRUE_CHUNK_SIZE - 1;
+const static int BEGIN_DATA = 1;
 
-//If condition is true, fail unrecoverably.
-#define CHECK_ERROR(condition) if(condition) return error = -1
-#define INIT_ERROR() static int error=0; CHECK_ERROR(error == -1)
+char xor_checksum(const char* buffer, const char* end)
+{
+	char checksum = 0;
+	for(; buffer < end; ++buffer)
+		checksum ^= *buffer;
+	return checksum;
+}
+
+#define LAYER1_ATTEMPT_WRITE(BYTE) \
+	ATTEMPT_WITH_RETRIES(MAX_LAYER1_RETRIES, layer1_write, BYTE)
+
+static inline int attempt_layer1_write(char byte)
+{
+	int attempts = MAX_LAYER1_RETRIES;
+	while(layer1_write(byte) == -1)
+		if(!(--attempts))
+			return 1;
+	return 0;
+}
+
+/*
+ * Padding bytes are filled with random data. They aren't checksummed, so if the
+ * length is wrong they'll ruin the checksum.
+ */
+static inline char padding_byte()
+{
+	return rand() & 0xFF;
+}
 
 int layer2_write(char* chunk, int len)
 {
-
 	INIT_ERROR();
 
-	CHECK_ERROR(len < 0 || len > MAX_CHUNK_SIZE);
+	if(len < 0 || len > MAX_CHUNK_SIZE) return -1;
 
-	char len_byte = len;
-	CHECK_ERROR(layer1_write(len_byte) == -1);
+	//Create the bytes to be written
+	char chunk_buffer[TRUE_CHUNK_SIZE];
 
-	int i;
-	for(i = 0; i < len; ++i)
-		CHECK_ERROR(layer1_write(chunk[i]) == -1);
-	for(; i < MAX_CHUNK_SIZE; ++i)
-		CHECK_ERROR(layer1_write(0) == -1);
+	//Fill random padding
+	for(unsigned i = 0; i < (TRUE_CHUNK_SIZE - 1); ++i)
+		chunk_buffer[i] = padding_byte();
+
+	//Write length byte
+	chunk_buffer[LENGTH_BYTE] = len;
+
+	//Write data bytes
+	memcpy(chunk_buffer+BEGIN_DATA, chunk, len);
+
+	//Compute checksum of length byte and data bytes
+	chunk_buffer[CHECKSUM_BYTE] =
+			xor_checksum(chunk_buffer, chunk_buffer + 1 + len);
+
+	//Write
+	for(unsigned i = 0; i < TRUE_CHUNK_SIZE; ++i)
+		CHECK_ERROR(attempt_layer1_write(chunk_buffer[i]));
 
 	return len;
+}
+
+#define LAYER1_ATTEMPT_READ(BYTE) \
+	ATTEMPT_WITH_RETRIES(MAX_LAYER1_RETRIES, layer1_read, BYTE)
+
+static inline int attempt_layer1_read(char* byte)
+{
+	int attempts = MAX_LAYER1_RETRIES;
+	while(layer1_read(byte) == -1)
+		if(!(--attempts))
+			return 1;
+	return 0;
 }
 
 int layer2_read(char* chunk, int max)
 {
 	INIT_ERROR();
 
-	char read_len;
-	char read_buf[MAX_CHUNK_SIZE];
+	char read_buf[TRUE_CHUNK_SIZE];
 
-	CHECK_ERROR(layer1_read(&read_len) == -1);
-	for(int i = 0; i < MAX_CHUNK_SIZE; ++i)
-		CHECK_ERROR(layer1_read(read_buf+i) == -1);
+	/*
+	 * ALWAYS read MAX_CHUNK_SIZE+2 bytes, no matter what max is or whatever
+	 */
+	for(int i = 0; i < TRUE_CHUNK_SIZE; ++i)
+		CHECK_ERROR(attempt_layer1_read(read_buf + i));
 
-	int len = read_len;
-	CHECK_ERROR(len < 0 || len > MAX_CHUNK_SIZE);
+	int len = read_buf[LENGTH_BYTE];
+	if(len < 0 || len > MAX_CHUNK_SIZE)
+		return -1;
 
-	CHECK_ERROR(len > max);
+	if(len > max)
+		return -1;
 
-	memcpy(chunk, read_buf, read_len);
-	return read_len;
+	if(xor_checksum(read_buf, read_buf + len + 1) != read_buf[CHECKSUM_BYTE])
+		return -1;
+
+	memcpy(chunk, read_buf+BEGIN_DATA, len);
+	return len;
 }

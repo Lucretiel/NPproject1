@@ -4,11 +4,11 @@
  *  Created on: Jan 31, 2014
  *      Author: nathan
  *
- *  PROTOCOL: [DATA CHUNKS]... [0-length chunk]
+ *  PROTOCOL: [DATA CHUNKS]... [SHORT DATA CHUNK]
+ *  Writes data as a series of length 16 chunks followed by a length 0-15 chunk
  *
  */
 
-#include <stdbool.h>
 #include <string.h>
 #include "layers.h"
 
@@ -18,17 +18,26 @@ int layer3_write(char* msg, int len)
 {
 	INIT_ERROR();
 
+	//Total number on unwritten bytes
 	int bytes_remaining = len;
+
+	//ptr to the next chunk
 	char* msg_seek = msg;
 
-	int bytes_to_write = -1;
+	//Keep sending chunks until a short one is sent
+	int bytes_to_write;
 	do
 	{
+		//How many bytes in this chunk
 		bytes_to_write = min(MAX_CHUNK_SIZE, bytes_remaining);
-		CHECK_ERROR(layer2_write(msg_seek, bytes_to_write));
+
+		//Write the chunk
+		CHECK_LAYER_ERROR(layer2_write(msg_seek, bytes_to_write));
+
+		//Update counters
 		msg_seek += bytes_to_write;
 		bytes_remaining -= bytes_to_write;
-	} while(bytes_to_write > 0);
+	} while(bytes_to_write == MAX_CHUNK_SIZE);
 
 	return len;
 }
@@ -37,29 +46,30 @@ int layer3_read(char* msg, int max)
 {
 	INIT_ERROR();
 
-	int total_bytes_read = 0;
-	int total_bytes_remaining = max;
-	char* msg_seek = msg;
-	char buffer[MAX_CHUNK_SIZE];
-	bool too_long = false;
+	//Total number of bytes before we go over max
+	int bytes_remaining = max;
 
+	//ptr to where the next chunk will be written
+	char* msg_seek = msg;
+
+	/*
+	 * Note: an old implementation of layer3_read used buffering to read the
+	 * whole message, even if max was too small. Decided to not bother.
+	 */
+
+	//Keep reading until a short chunk is read
 	int bytes_read;
 	do
 	{
-		CHECK_ERROR(bytes_read = layer2_read(buffer, MAX_CHUNK_SIZE));
-		if(bytes_read <= total_bytes_remaining)
-		{
-			memcpy(msg_seek, buffer, bytes_read);
-			total_bytes_read += bytes_read;
-			total_bytes_remaining -= bytes_read;
-			msg_seek += bytes_read;
-		}
-		else
-		{
-			too_long = true;
-		}
-	} while(bytes_read > 0);
+		//Read the chunk into the client array
+		//If the size of the chunk is < bytes_remaining, permafail.
+		CHECK_LAYER_ERROR(bytes_read = layer2_read(msg_seek, bytes_remaining));
 
-	if(too_long) return -1;
-	else return total_bytes_read;
+		//Update counters
+		msg_seek += bytes_read;
+		bytes_remaining -= bytes_read;
+	} while(bytes_read == MAX_CHUNK_SIZE);
+
+	//Compute length based on how far msg_seek moved
+	return msg_seek - msg;
 }

@@ -24,16 +24,15 @@ int layer2_write(char* chunk, int len)
 {
 	INIT_ERROR();
 
+	//Enforce chunk size
 	if(len < 0 || len > MAX_CHUNK_SIZE) return -1;
 
-	char len_byte = len;
-	char chunk_buffer[MAX_CHUNK_SIZE];
+	//Write chunk length byte
+	CHECK_LAYER_ERROR(layer1_write(len));
 
-	memcpy(chunk_buffer, chunk, len);
-
-	CHECK_ERROR(layer1_write(len_byte));
+	//Write chunk data bytes
 	for(unsigned i = 0; i < len; ++i)
-		CHECK_ERROR(layer1_write(chunk_buffer[i]));
+		CHECK_LAYER_ERROR(layer1_write(chunk[i]));
 
 	return len;
 }
@@ -42,19 +41,25 @@ int layer2_read(char* chunk, int max)
 {
 	INIT_ERROR();
 
-	char len_byte;
-	CHECK_ERROR(layer1_read(&len_byte));
+	//Read chunk length byte
+	char len;
+	CHECK_LAYER_ERROR(layer1_read(&len));
 
-	const int len = len_byte;
+	//Check for length byte corruption
 	CHECK_ERROR(len < 0 || len > MAX_CHUNK_SIZE);
 
-	char read_buf[MAX_CHUNK_SIZE];
+	//Check that it'll fit
+	CHECK_ERROR(len > max);
+
+	/*
+	 * Note: An old implementation read the whole chunk into a buffer, THEN
+	 * checked len>max, so that even if len>max was false it wasn't a
+	 * permanant fail. Decided not to bother, to keep the implementation simple.
+	 */
+
+	//Read chunk data bytes
 	for(int i = 0; i < len; ++i)
-		CHECK_ERROR(layer1_read(read_buf + i));
+		CHECK_LAYER_ERROR(layer1_read(chunk + i));
 
-	if(len > max)
-		return -1;
-
-	memcpy(chunk, read_buf, len);
 	return len;
 }

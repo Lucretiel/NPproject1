@@ -66,10 +66,10 @@ int layer5_read( student * stu )
 	memset(stat_buf, 0, STAT_BUF_LENGTH);
 
 	/*
-	 * Do we really need 3 buffers? No, but if we use just one, we have to make
-	 * sure everything gets freed in case of errors. With 2 buffers, everything
-	 * is read into static memory, errors are checked, THEN mallocs happen
-	 * after potential errors have caused returns.
+	 * Do we really need all these buffers? No, but if we use just one, we have
+	 * to make sure everything gets freed in case of errors. With 2 buffers,
+	 * everything is read into static memory, errors are checked, THEN mallocs
+	 * happen after potential errors have caused returns.
 	 */
 	//No need to add an extra byte for \0: the layer 5 protocol doesn't send it
 	char firstname_buffer[MAX_NAME_LENGTH];

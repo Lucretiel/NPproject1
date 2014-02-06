@@ -61,6 +61,8 @@ int layer5_read( student * stu )
 	INIT_ERROR();
 
 	char stat_buf[STAT_BUF_LENGTH];
+	
+	//Need to fill with NULL bytes, because sscanf requires a C-style string
 	memset(stat_buf, 0, STAT_BUF_LENGTH);
 
 	/*

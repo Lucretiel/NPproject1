@@ -13,14 +13,14 @@
 
 #include "layers.h"
 
-//convert an unsigned to a char[4].
+//convert an unsigned to a char array.
 static inline void value_to_char_array(unsigned value, char* buffer)
 {
 	for(int i = 0; i < sizeof(value); ++i)
 		buffer[i] = ((value >> (i * 8)) & 0xFF);
 }
 
-//convert a char[4] to an unsigned.
+//convert a char array to an unsigned.
 static inline unsigned char_array_to_value(char* buffer)
 {
 	unsigned result = 0;

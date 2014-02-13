@@ -14,13 +14,17 @@
 #include <stdint.h>
 #include "layers.h"
 
-#define BYTE_MASK(THING) ((uint32_t)((THING) & (0xFF)))
+#define BYTE_MASK(THING) (((uint32_t)(THING)) & (0xFF))
 
+/*
+ * No need to worry about endianness here, because the bit operators always
+ * behave as though the ints have most significant byte on the left.
+ */
 //convert an unsigned to a char array.
 static inline void value_to_char_array(uint32_t value, char* buffer)
 {
 	for(int i = 0; i < sizeof(value); ++i)
-		buffer[i] = (value >> BYTE_MASK(i * 8));
+		buffer[i] = BYTE_MASK(value >> (i * 8));
 }
 
 //convert a char array to an unsigned.
@@ -36,11 +40,14 @@ int layer4_write(char* msg, int len)
 {
 	INIT_ERROR();
 
+	/*
+	 * No need to take the modulus of anything, because unsigned ints always
+	 * roll over on overflow anyway.
+	 */
 	//Compute checksum
 	uint32_t checksum = 0;
 	for(int i = 0; i < len; ++i)
 		checksum += msg[i];
-	//No need to mod anything, because unsigneds roll over anyway
 
 	//Write checksum to char array
 	char checksum_buf[sizeof(unsigned)];

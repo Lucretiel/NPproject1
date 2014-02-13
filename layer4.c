@@ -11,21 +11,24 @@
  *  the unsigned checksum is converted to a char[4] to transmit.
  */
 
+#include <stdint.h>
 #include "layers.h"
 
+#define BYTE_MASK(THING) ((uint32_t)((THING) & (0xFF)))
+
 //convert an unsigned to a char array.
-static inline void value_to_char_array(unsigned value, char* buffer)
+static inline void value_to_char_array(uint32_t value, char* buffer)
 {
 	for(int i = 0; i < sizeof(value); ++i)
-		buffer[i] = ((value >> (i * 8)) & 0xFF);
+		buffer[i] = (value >> BYTE_MASK(i * 8));
 }
 
 //convert a char array to an unsigned.
-static inline unsigned char_array_to_value(char* buffer)
+static inline uint32_t char_array_to_value(char* buffer)
 {
-	unsigned result = 0;
+	uint32_t result = 0;
 	for(int i = 0; i < sizeof(result); ++i)
-		result |= (((unsigned)(buffer[i] & 0xFF)) << (i * 8));
+		result |= (BYTE_MASK(buffer[i]) << (i * 8));
 	return result;
 }
 
@@ -34,9 +37,10 @@ int layer4_write(char* msg, int len)
 	INIT_ERROR();
 
 	//Compute checksum
-	unsigned checksum = 0;
+	uint32_t checksum = 0;
 	for(int i = 0; i < len; ++i)
 		checksum += msg[i];
+	//No need to mod anything, because unsigneds roll over anyway
 
 	//Write checksum to char array
 	char checksum_buf[sizeof(unsigned)];
